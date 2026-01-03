@@ -1,0 +1,47 @@
+{
+  "altitude_ft": {
+    "offset": "0x0570",
+    "type": "d",
+    "scale": 0.0000152587890625
+  },
+  "heading_deg": {
+    "offset": "0x0580",
+    "type": "u",
+    "scale": 0.0054931640625
+  },
+  "airspeed_kt": {
+    "offset": "0x02BC",
+    "type": "u",
+    "scale": 0.0078125
+  },
+  "vertical_speed_fpm": {
+    "offset": "0x02C8",
+    "type": "d",
+    "scale": 0.00390625
+  },
+  "latitude": {
+    "offset": "0x0560",
+    "type": "l",
+    "scale": 0.000000041909515
+  },
+  "longitude": {
+    "offset": "0x0568",
+    "type": "l",
+    "scale": 0.000000083819031
+  },
+  "pitch_deg": {
+    "offset": "0x0578",
+    "type": "d",
+    "scale": 0.0054931640625
+  },
+  "bank_deg": {
+    "offset": "0x057C",
+    "type": "d",
+    "scale": 0.0054931640625
+  },
+  "fuel_total_gal": {
+    "offset": "0x0B7C",
+    "type": "u",
+    "scale": 1.0
+  }
+}

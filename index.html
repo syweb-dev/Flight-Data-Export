@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>飞机实时数据导出</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="sky"></div>
+    <div class="container">
+      <header>
+        <p class="tag" data-i18n="tag">Microsoft Flight Simulator 2020/2024</p>
+        <h1 data-i18n="title">飞机实时数据导出</h1>
+        <p class="subtitle" data-i18n="subtitle">本地数据面板 · 127.0.0.1:8989</p>
+      </header>
+
+      <section class="grid" id="data-grid">
+        <div class="card">
+          <h3 data-i18n="field_altitude">高度</h3>
+          <p data-key="altitude_ft">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_heading">航向</h3>
+          <p data-key="heading_deg">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_speed">速度</h3>
+          <p data-key="airspeed_kt">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_vs">垂直速度</h3>
+          <p data-key="vertical_speed_fpm">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_lat">纬度</h3>
+          <p data-key="latitude">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_lon">经度</h3>
+          <p data-key="longitude">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_pitch">俯仰</h3>
+          <p data-key="pitch_deg">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_bank">横滚</h3>
+          <p data-key="bank_deg">--</p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="field_fuel">燃油</h3>
+          <p data-key="fuel_total_gal">--</p>
+        </div>
+      </section>
+
+      <section class="controls">
+        <button class="btn" id="record-start" data-i18n="record_start">开始录制</button>
+        <button class="btn" id="record-stop" disabled data-i18n="record_stop">停止录制</button>
+        <a class="btn" id="record-download" href="#" download="msfs-data-recording.webm" aria-disabled="true" data-i18n="record_download">
+          下载视频
+        </a>
+        <button class="btn" id="theme-toggle" data-i18n="theme_toggle_open">主题设置</button>
+        <span class="record-status" id="record-status" data-i18n="record_status_idle">录制状态: 未开始</span>
+        <label class="lang-select"><span data-i18n="lang_label">语言</span><select id="lang-select"></select></label>
+      </section>
+
+      <section class="theme-panel hidden" id="theme-panel">
+        <h2 data-i18n="theme_title">网页主题设置</h2>
+        <div class="theme-grid">
+          <label>
+            <span data-i18n="theme_bg">背景</span>
+            <input type="color" data-theme-key="bg" />
+            <input type="text" data-theme-key="bg-text" value="#f5f7fa" />
+          </label>
+          <label>
+            <span data-i18n="theme_panel">面板</span>
+            <input type="color" data-theme-key="panel" />
+            <input type="text" data-theme-key="panel-text" value="#ffffff" />
+          </label>
+          <label>
+            <span data-i18n="theme_ink">主文本</span>
+            <input type="color" data-theme-key="ink" />
+            <input type="text" data-theme-key="ink-text" value="#0f172a" />
+          </label>
+          <label>
+            <span data-i18n="theme_muted">次文本</span>
+            <input type="color" data-theme-key="muted" />
+            <input type="text" data-theme-key="muted-text" value="#475569" />
+          </label>
+          <label>
+            <span data-i18n="theme_accent">强调</span>
+            <input type="color" data-theme-key="accent" />
+            <input type="text" data-theme-key="accent-text" value="#1d4ed8" />
+          </label>
+          <label>
+            <span data-i18n="theme_border">边框</span>
+            <input type="color" data-theme-key="border" />
+            <input type="text" data-theme-key="border-text" value="#d7dde7" />
+          </label>
+        </div>
+        <div class="theme-actions">
+          <button class="btn" id="theme-save" data-i18n="theme_save">保存主题</button>
+          <button class="btn" id="theme-reset" data-i18n="theme_reset">恢复默认</button>
+          <span class="theme-status" id="theme-status" data-i18n="theme_status_default">主题: 默认</span>
+        </div>
+      </section>
+
+      <footer>
+        <span id="source" data-i18n="source_label">来源: --</span>
+        <span id="update" data-i18n="update_label">更新时间: --</span>
+      </footer>
+    </div>
+
+    
+    <script>
+      const format = (value, unit) => {
+        if (typeof value === "number") {
+          return `${value.toFixed(2)} ${unit}`.trim();
+        }
+        return `${value} ${unit}`.trim();
+      };
+
+      const units = {
+        altitude_ft: "ft",
+        heading_deg: "deg",
+        airspeed_kt: "kt",
+        vertical_speed_fpm: "fpm",
+        latitude: "",
+        longitude: "",
+        pitch_deg: "deg",
+        bank_deg: "deg",
+        fuel_total_gal: "gal",
+      };
+
+      const themeDefaults = {
+        bg: "#f5f7fa",
+        panel: "#ffffff",
+        ink: "#0f172a",
+        muted: "#475569",
+        accent: "#1d4ed8",
+        border: "#d7dde7",
+      };
+
+      const themeToggle = document.getElementById("theme-toggle");
+      const themePanel = document.getElementById("theme-panel");
+      const themeStatus = document.getElementById("theme-status");
+      const themeSave = document.getElementById("theme-save");
+      const themeReset = document.getElementById("theme-reset");
+      const themeInputs = Array.from(document.querySelectorAll("[data-theme-key]"));
+
+      const startBtn = document.getElementById("record-start");
+      const stopBtn = document.getElementById("record-stop");
+      const downloadLink = document.getElementById("record-download");
+      const recordStatus = document.getElementById("record-status");
+      const langSelect = document.getElementById("lang-select");
+
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let activeStream = null;
+      let latestData = null;
+      let themeStatusKey = "theme_status_default";
+      let recordStatusKey = "record_status_idle";
+      let i18nData = null;
+      let i18nStrings = {};
+
+      const formatText = (template, params = {}) =>
+        template.replace(/\{(\w+)\}/g, (_, key) =>
+          params[key] !== undefined ? params[key] : ""
+        );
+
+      const t = (key, params) => {
+        const value = i18nStrings[key] || key;
+        return params ? formatText(value, params) : value;
+      };
+
+      const applyI18n = () => {
+        const url = "127.0.0.1:8989";
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.dataset.i18n;
+          if (key === "subtitle") {
+            el.textContent = t(key, { url });
+            return;
+          }
+          if (key === "source_label") {
+            el.textContent = t(key, { value: "--" });
+            return;
+          }
+          if (key === "update_label") {
+            el.textContent = t(key, { value: "--" });
+            return;
+          }
+          if (key.startsWith("record_status_")) {
+            el.textContent = t(recordStatusKey);
+            return;
+          }
+          if (key.startsWith("theme_status_")) {
+            el.textContent = t(themeStatusKey);
+            return;
+          }
+          el.textContent = t(key);
+        });
+
+        if (themeToggle) {
+          const isHidden = themePanel.classList.contains("hidden");
+          themeToggle.textContent = t(
+            isHidden ? "theme_toggle_open" : "theme_toggle_close"
+          );
+        }
+
+        if (latestData) {
+          updateUI(latestData);
+        }
+      };
+
+      const setLangOptions = (langMap, defaultLang) => {
+        const saved = localStorage.getItem("msfs-lang") || defaultLang;
+        langSelect.innerHTML = "";
+        Object.entries(langMap).forEach(([code, payload]) => {
+          const option = document.createElement("option");
+          option.value = code;
+          option.textContent = payload.name || code;
+          langSelect.appendChild(option);
+        });
+        langSelect.value = langMap[saved] ? saved : defaultLang;
+        i18nStrings = langMap[langSelect.value].strings || {};
+        applyI18n();
+      };
+
+      const loadI18n = async () => {
+        try {
+          const res = await fetch("/html-lang.json");
+          if (!res.ok) return;
+          i18nData = await res.json();
+          setLangOptions(i18nData.languages || {}, i18nData.default || "zh-CN");
+        } catch (err) {
+          console.warn(err);
+        }
+      };
+
+      langSelect.addEventListener("change", () => {
+        if (!i18nData) return;
+        const code = langSelect.value;
+        localStorage.setItem("msfs-lang", code);
+        i18nStrings = (i18nData.languages[code] || {}).strings || {};
+        applyI18n();
+      });
+
+      const setRecordingState = (key, isRecording) => {
+        recordStatusKey = key;
+        recordStatus.textContent = t(recordStatusKey);
+        startBtn.disabled = isRecording;
+        stopBtn.disabled = !isRecording;
+      };
+
+      const resetDownload = () => {
+        downloadLink.href = "#";
+        downloadLink.setAttribute("aria-disabled", "true");
+        downloadLink.classList.add("disabled");
+      };
+
+      const enableDownload = (url) => {
+        downloadLink.href = url;
+        downloadLink.setAttribute("aria-disabled", "false");
+        downloadLink.classList.remove("disabled");
+      };
+
+      const stopStream = () => {
+        if (activeStream) {
+          activeStream.getTracks().forEach((track) => track.stop());
+          activeStream = null;
+        }
+      };
+
+      const startRecording = async () => {
+        try {
+          recordedChunks = [];
+          resetDownload();
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true,
+          });
+          activeStream = stream;
+          mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          };
+
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: "video/webm" });
+            const url = URL.createObjectURL(blob);
+            enableDownload(url);
+            setRecordingState("record_status_stopped", false);
+            stopStream();
+          };
+
+          mediaRecorder.start(1000);
+          setRecordingState("record_status_recording", true);
+        } catch (err) {
+          console.warn(err);
+          setRecordingState("record_status_failed", false);
+          stopStream();
+        }
+      };
+
+      const stopRecording = () => {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        } else {
+          setRecordingState("record_status_idle", false);
+        }
+      };
+
+      const setThemeVar = (key, value) => {
+        document.documentElement.style.setProperty(`--${key}`, value);
+      };
+
+      const loadThemeFromStorage = () => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("msfs-theme") || "{}");
+          return { ...themeDefaults, ...saved };
+        } catch (err) {
+          return { ...themeDefaults };
+        }
+      };
+
+      const applyTheme = (theme) => {
+        Object.entries(theme).forEach(([key, value]) => {
+          setThemeVar(key, value);
+        });
+        themeStatusKey = "theme_status_applied";
+        themeStatus.textContent = t(themeStatusKey);
+      };
+
+      const syncThemeInputs = (theme) => {
+        themeInputs.forEach((input) => {
+          const key = input.dataset.themeKey.replace("-text", "");
+          input.value = theme[key];
+        });
+      };
+
+      const readThemeInputs = () => {
+        const theme = {};
+        themeInputs.forEach((input) => {
+          const key = input.dataset.themeKey.replace("-text", "");
+          const value = input.value.trim();
+          if (!theme[key]) {
+            theme[key] = value;
+          }
+        });
+        return theme;
+      };
+
+      const isValidHex = (value) => /^#[0-9a-fA-F]{6}$/.test(value);
+
+      const bindThemeInputs = () => {
+        themeInputs.forEach((input) => {
+          input.addEventListener("input", () => {
+            const key = input.dataset.themeKey.replace("-text", "");
+            const value = input.value.trim();
+            if (isValidHex(value)) {
+              setThemeVar(key, value);
+              themeStatusKey = "theme_status_preview";
+              themeStatus.textContent = t(themeStatusKey);
+              const pair = document.querySelector(
+                `[data-theme-key="${key}-text"]`
+              );
+              const picker = document.querySelector(`[data-theme-key="${key}"]`);
+              if (input.type === "color" && pair) {
+                pair.value = value;
+              }
+              if (input.type === "text" && picker && picker.value !== value) {
+                picker.value = value;
+              }
+            }
+          });
+        });
+      };
+
+      const initTheme = () => {
+        const theme = loadThemeFromStorage();
+        applyTheme(theme);
+        syncThemeInputs(theme);
+        bindThemeInputs();
+      };
+
+      themeSave.addEventListener("click", () => {
+        const theme = readThemeInputs();
+        const valid = Object.values(theme).every(isValidHex);
+        if (!valid) {
+          themeStatusKey = "theme_status_invalid";
+          themeStatus.textContent = t(themeStatusKey);
+          return;
+        }
+        localStorage.setItem("msfs-theme", JSON.stringify(theme));
+        applyTheme(theme);
+        themeStatusKey = "theme_status_saved";
+        themeStatus.textContent = t(themeStatusKey);
+      });
+
+      themeReset.addEventListener("click", () => {
+        localStorage.removeItem("msfs-theme");
+        applyTheme(themeDefaults);
+        syncThemeInputs(themeDefaults);
+        themeStatusKey = "theme_status_default";
+        themeStatus.textContent = t(themeStatusKey);
+      });
+
+      themeToggle.addEventListener("click", () => {
+        const isHidden = themePanel.classList.contains("hidden");
+        themePanel.classList.toggle("hidden");
+        themeToggle.textContent = t(
+          isHidden ? "theme_toggle_close" : "theme_toggle_open"
+        );
+      });
+
+      const updateUI = (data) => {
+        latestData = data;
+        document.querySelectorAll("[data-key]").forEach((el) => {
+          const key = el.dataset.key;
+          el.textContent = format(data[key], units[key] || "");
+        });
+        const source = document.getElementById("source");
+        const update = document.getElementById("update");
+        source.textContent = t("source_label", { value: data.source || "--" });
+        const ts = data.last_update ? new Date(data.last_update * 1000) : null;
+        const timeText = ts ? ts.toLocaleTimeString() : "--";
+        update.textContent = t("update_label", { value: timeText });
+      };
+
+      const fetchData = async () => {
+        try {
+          const res = await fetch("/data");
+          if (!res.ok) return;
+          const data = await res.json();
+          updateUI(data);
+        } catch (err) {
+          console.warn(err);
+        }
+      };
+
+      startBtn.addEventListener("click", startRecording);
+      stopBtn.addEventListener("click", stopRecording);
+
+      resetDownload();
+      initTheme();
+      loadI18n();
+      setRecordingState("record_status_idle", false);
+
+      fetchData();
+      setInterval(fetchData, 1000);
+    </script>
+
+  </body>
+</html>
